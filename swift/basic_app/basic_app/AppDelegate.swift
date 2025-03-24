@@ -9,6 +9,7 @@
 import UIKit
 import AppsFlyerLib
 import AppTrackingTransparency
+import AppsFlyerMigrationHelper
 
 import BranchSDK
 
@@ -19,6 +20,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var deferred_deep_link_processed_flag:Bool = false
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        
+        //  Set isDebug to true to see AppsFlyer debug logs
+        AppsFlyerLib.shared().isDebug = true
+        
+        // Replace 'appsFlyerDevKey', `appleAppID` with your DevKey, Apple App ID
+        AppsFlyerLib.shared().appsFlyerDevKey = "sQ84wpdxRTR4RMCaE9YqS4"
+        AppsFlyerLib.shared().appleAppID = "1512793879"
         
         Branch.enableLogging()
         
@@ -34,18 +42,42 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 // You can notify the user of what just occurred here
                 NSLog("[Branch] willShowPasteboardToast ######")
           }
-
+        
+        
+        
         Branch.getInstance().initSession(launchOptions: launchOptions) { (params, error) in
-            NSLog("[Branch] initSession, deep link data:")
-            print(params as? [String: AnyObject] ?? {})
-            // Access and use deep link data here (nav to page, display content, etc.)
-        }
-        
-        // Get first referring params for Deep Link
-        let installParams = Branch.getInstance().getFirstReferringParams()
-        NSLog("[Branch] initSession, installParams:")
-        print(installParams as? [String: AnyObject] ?? {})
-        
+                print(params as? [String: AnyObject] ?? {})
+                
+                // Access and use deep link data here (nav to page, display content, etc.)
+                NSLog("****** Im here 000000")
+                let isFirstBranchSession = params!["+is_first_session"] as? Int
+                let clickedBranchLink = params!["+clicked_branch_link"] as? Int
+                if isFirstBranchSession == 0,
+                   clickedBranchLink == 1 {
+                    NSLog("****** Im here 111111")
+                    AFMigrationHelper.shared.setDeepLinkingData(Branch.getInstance().getLatestReferringParams())
+                }
+                
+                if isFirstBranchSession == 1 {
+                    NSLog("****** Im here 222222")
+                    let dispatchGroup = DispatchGroup()
+                    dispatchGroup.enter()
+                    
+                    DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 3) {
+                        Branch.getInstance().lastAttributedTouchData(withAttributionWindow:0) { (params, error) in
+                            if let params = params {
+                                NSLog("****** Im here 333333")
+                                AFMigrationHelper.shared.setAttributionData(params.lastAttributedTouchJSON, attributionWindow: params.attributionWindow)
+                            }
+                            AppsFlyerLib.shared().start()
+                        }
+                        dispatchGroup.leave()
+                    }
+                } else {
+                    NSLog("****** Im here 4444444")
+                    AppsFlyerLib.shared().start()
+                }
+            }
         return true
     }
     
