@@ -89,7 +89,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
         
         // Handler for Universal Links
-        Branch.getInstance().continue(userActivity)        
+        Branch.getInstance().continue(userActivity)
+        AppsFlyerLib.shared().continue(userActivity)
         return true
     }
             
