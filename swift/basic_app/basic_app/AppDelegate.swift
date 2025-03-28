@@ -31,42 +31,36 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         Branch.enableLogging()
         
         if #available(iOS 16.0, *) {
-                // Don't check pasteboard on install, instead utilize UIPasteControl
-            } else if #available(iOS 15.0, *) {
-                // Call `checkPasteboardOnInstall()` before Branch initialization
-                Branch.getInstance().checkPasteboardOnInstall()
-            }
+            // Don't check pasteboard on install, instead utilize UIPasteControl
+        } else if #available(iOS 15.0, *) {
+            // Call `checkPasteboardOnInstall()` before Branch initialization
+            Branch.getInstance().checkPasteboardOnInstall()
+        }
 
             // Check if pasteboard toast will show
-            if Branch.getInstance().willShowPasteboardToast(){
-                // You can notify the user of what just occurred here
-                NSLog("[Branch] willShowPasteboardToast ######")
-          }
-        
-        
+        if Branch.getInstance().willShowPasteboardToast(){
+            // You can notify the user of what just occurred here
+            NSLog("[Branch] willShowPasteboardToast ######")
+        }
         
         Branch.getInstance().initSession(launchOptions: launchOptions) { (params, error) in
                 print(params as? [String: AnyObject] ?? {})
                 
                 // Access and use deep link data here (nav to page, display content, etc.)
-                NSLog("****** Im here 000000")
                 let isFirstBranchSession = params!["+is_first_session"] as? Int
                 let clickedBranchLink = params!["+clicked_branch_link"] as? Int
                 if isFirstBranchSession == 0,
                    clickedBranchLink == 1 {
-                    NSLog("****** Im here 111111")
                     AFMigrationHelper.shared.setDeepLinkingData(Branch.getInstance().getLatestReferringParams())
                 }
                 
                 if isFirstBranchSession == 1 {
-                    NSLog("****** Im here 222222")
                     let dispatchGroup = DispatchGroup()
                     dispatchGroup.enter()
                     
                     DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 3) {
                         Branch.getInstance().lastAttributedTouchData(withAttributionWindow:0) { (params, error) in
                             if let params = params {
-                                NSLog("****** Im here 333333")
                                 AFMigrationHelper.shared.setAttributionData(params.lastAttributedTouchJSON, attributionWindow: params.attributionWindow)
                             }
                             AppsFlyerLib.shared().start()
@@ -74,13 +68,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                         dispatchGroup.leave()
                     }
                 } else {
-                    NSLog("****** Im here 4444444")
                     AppsFlyerLib.shared().start()
                 }
             }
         return true
     }
-    
         
     // Open Universal Links
     
@@ -98,7 +90,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
         return true
     }
-    
        
     // User logic
     fileprivate func walkToSceneWithParams(fruitName: String, deepLinkData: [String: Any]?) {
