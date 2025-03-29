@@ -44,28 +44,34 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
         
         Branch.getInstance().initSession(launchOptions: launchOptions) { (params, error) in
-                print(params as? [String: AnyObject] ?? {})
-                
-                // Access and use deep link data here (nav to page, display content, etc.)
-                let isFirstBranchSession = params!["+is_first_session"] as? Int
-                let clickedBranchLink = params!["+clicked_branch_link"] as? Int
-                if isFirstBranchSession == 0,
-                   clickedBranchLink == 1 {
-                    AFMigrationHelper.shared.setDeepLinkingData(Branch.getInstance().getLatestReferringParams())
-                }
-                
-                if isFirstBranchSession == 1 {
-                    let dispatchGroup = DispatchGroup()
-                    dispatchGroup.enter()
+                    // Access and use deep link data here (nav to page, display content, etc.)
+                    print(params as? [String: AnyObject] ?? {})
+                    let isFirstSession = (params?["+is_first_session"] as? Bool) ?? false
+                    let isDeepLink = (params?["+clicked_branch_link"] as? Bool) ?? false
                     
+                    if !isFirstSession, isDeepLink {
+                        AFMigrationHelper.shared.setDeepLinkingData(Branch.getInstance().getLatestReferringParams())
+                    }
+                    
+                    if #available(iOS 14, *) {
+                        ATTrackingManager.requestTrackingAuthorization { status in
+                            handlePostATT(isFirstSession: isFirstSession)
+                        }
+                    } else {
+                        handlePostATT(isFirstSession: isFirstSession)
+                    }
+                }
+            
+            func handlePostATT(isFirstSession: Bool) {
+                if isFirstSession {
+                    // Delay + LATD
                     DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 3) {
-                        Branch.getInstance().lastAttributedTouchData(withAttributionWindow:0) { (params, error) in
+                        Branch.getInstance().lastAttributedTouchData(withAttributionWindow: 7) { (params, error) in
                             if let params = params {
                                 AFMigrationHelper.shared.setAttributionData(params.lastAttributedTouchJSON, attributionWindow: params.attributionWindow)
                             }
                             AppsFlyerLib.shared().start()
                         }
-                        dispatchGroup.leave()
                     }
                 } else {
                     AppsFlyerLib.shared().start()
