@@ -43,30 +43,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 NSLog("[Branch] willShowPasteboardToast ######")
           }
         
-        
-        
         Branch.getInstance().initSession(launchOptions: launchOptions) { (params, error) in
                 print(params as? [String: AnyObject] ?? {})
                 
                 // Access and use deep link data here (nav to page, display content, etc.)
-                NSLog("****** Im here 000000")
-                let isFirstBranchSession = params!["+is_first_session"] as? Int
-                let clickedBranchLink = params!["+clicked_branch_link"] as? Int
-                if isFirstBranchSession == 0,
-                   clickedBranchLink == 1 {
-                    NSLog("****** Im here 111111")
+                let isFirstBranchSession = (params?["+is_first_session"] as? Bool) ?? false
+                let isDeepLink = (params?["+clicked_branch_link"] as? Bool) ?? false
+            
+                if !isFirstBranchSession, isDeepLink {
                     AFMigrationHelper.shared.setDeepLinkingData(Branch.getInstance().getLatestReferringParams())
                 }
                 
-                if isFirstBranchSession == 1 {
-                    NSLog("****** Im here 222222")
+                if isFirstBranchSession {
                     let dispatchGroup = DispatchGroup()
                     dispatchGroup.enter()
                     
                     DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 3) {
                         Branch.getInstance().lastAttributedTouchData(withAttributionWindow:0) { (params, error) in
                             if let params = params {
-                                NSLog("****** Im here 333333")
                                 AFMigrationHelper.shared.setAttributionData(params.lastAttributedTouchJSON, attributionWindow: params.attributionWindow)
                             }
                             AppsFlyerLib.shared().start()
@@ -74,7 +68,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                         dispatchGroup.leave()
                     }
                 } else {
-                    NSLog("****** Im here 4444444")
                     AppsFlyerLib.shared().start()
                 }
             }
