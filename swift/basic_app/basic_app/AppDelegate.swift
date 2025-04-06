@@ -44,36 +44,51 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
         
         Branch.getInstance().initSession(launchOptions: launchOptions) { (params, error) in
-                    // Access and use deep link data here (nav to page, display content, etc.)
-                    print(params as? [String: AnyObject] ?? {})
-                    let isFirstSession = (params?["+is_first_session"] as? Bool) ?? false
-                    let isDeepLink = (params?["+clicked_branch_link"] as? Bool) ?? false
-                    
-                    if !isFirstSession, isDeepLink {
-                        AFMigrationHelper.shared.setDeepLinkingData(Branch.getInstance().getLatestReferringParams())
-                    }
-                    
-                    if #available(iOS 14, *) {
-                        ATTrackingManager.requestTrackingAuthorization { status in
-                            handlePostATT(isFirstSession: isFirstSession)
-                        }
-                    } else {
-                        handlePostATT(isFirstSession: isFirstSession)
-                    }
-                }
-            
-            func handlePostATT(isFirstSession: Bool) {
-                if isFirstSession {
-                    // Delay + LATD
-                    DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 3) {
-                        Branch.getInstance().lastAttributedTouchData(withAttributionWindow: 7) { (params, error) in
-                            if let params = params {
-                                AFMigrationHelper.shared.setAttributionData(params.lastAttributedTouchJSON, attributionWindow: params.attributionWindow)
-                            }
-                            AppsFlyerLib.shared().start()
-                        }
+                // Access and use deep link data here (nav to page, display content, etc.)
+                print(params as? [String: AnyObject] ?? {})
+                let isFirstSession = (params?["+is_first_session"] as? Bool) ?? false
+                let isDeepLink = (params?["+clicked_branch_link"] as? Bool) ?? false
+                
+                if #available(iOS 14, *) {
+                    ATTrackingManager.requestTrackingAuthorization { status in
+                        handlePostATT(isFirstSession: isFirstSession, isDeepLink: isDeepLink)
                     }
                 } else {
+                    handlePostATT(isFirstSession: isFirstSession, isDeepLink: isDeepLink)
+                }
+        
+                if let data = params as? [String: Any],
+                   let fruitName = data["fruit_name"] as? String {
+                    self.walkToSceneWithParams(fruitName: fruitName, deepLinkData: data)
+                }
+            }
+            
+            func handlePostATT(isFirstSession: Bool, isDeepLink: Bool = false) {
+                if isDeepLink {
+                    // deep link flow
+                    if isFirstSession {
+                        // Deferred deep linking flow
+                        let dispatchGroup = DispatchGroup()
+                        dispatchGroup.enter()
+                        
+                        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 3) {
+                            Branch.getInstance().lastAttributedTouchData(withAttributionWindow:0) { (params, error) in
+                                if let params = params {
+                                    // In several cases the LATD can come back nil.
+                                    // This condition protects this case
+                                    AFMigrationHelper.shared.setAttributionData(params.lastAttributedTouchJSON, attributionWindow: params.attributionWindow)
+                                }
+                                AppsFlyerLib.shared().start()
+                            }
+                            dispatchGroup.leave()
+                        }
+                    } else {
+                        // Direct deep linking flow - Universal link
+                        AFMigrationHelper.shared.setDeepLinkingData(Branch.getInstance().getLatestReferringParams())
+                        AppsFlyerLib.shared().start()
+                    }
+                } else {
+                    // Organic flow
                     AppsFlyerLib.shared().start()
                 }
             }
@@ -102,7 +117,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
         UIApplication.shared.windows.first?.rootViewController?.dismiss(animated: true, completion: nil)
                
-        let destVC = fruitName + "_vc"
+        let destVC = fruitName.lowercased() + "_vc"
         if let newVC = storyBoard.instantiateVC(withIdentifier: destVC) {
             
             NSLog("[AFSDK] AppsFlyer routing to section: \(destVC)")
