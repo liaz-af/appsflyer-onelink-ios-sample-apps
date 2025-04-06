@@ -31,54 +31,66 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         Branch.enableLogging()
         
         if #available(iOS 16.0, *) {
-                // Don't check pasteboard on install, instead utilize UIPasteControl
-            } else if #available(iOS 15.0, *) {
-                // Call `checkPasteboardOnInstall()` before Branch initialization
-                Branch.getInstance().checkPasteboardOnInstall()
-            }
-
-            // Check if pasteboard toast will show
-            if Branch.getInstance().willShowPasteboardToast(){
-                // You can notify the user of what just occurred here
-                NSLog("[Branch] willShowPasteboardToast ######")
-          }
+            // Don't check pasteboard on install, instead utilize UIPasteControl
+        } else if #available(iOS 15.0, *) {
+            // Call `checkPasteboardOnInstall()` before Branch initialization
+            Branch.getInstance().checkPasteboardOnInstall()
+        }
+        
+        // Check if pasteboard toast will show
+        if Branch.getInstance().willShowPasteboardToast(){
+            // You can notify the user of what just occurred here
+            NSLog("[Branch] willShowPasteboardToast ######")
+        }
         
         Branch.getInstance().initSession(launchOptions: launchOptions) { (params, error) in
-                print(params as? [String: AnyObject] ?? {})
-                
+            print(params as? [String: AnyObject] ?? {})
+            
+            if error != nil {
+                print("Error initializing Branch: \(String(describing: error))")
+                // Even Branch starts with an error, AppsFlyer should be started
+                AppsFlyerLib.shared().start()
+            } else {
+                NSLog("Branch SDK init completed successfully")
                 // Access and use deep link data here (nav to page, display content, etc.)
                 let isFirstBranchSession = (params?["+is_first_session"] as? Bool) ?? false
                 let isDeepLink = (params?["+clicked_branch_link"] as? Bool) ?? false
-            
-                if !isFirstBranchSession, isDeepLink {
-                    AFMigrationHelper.shared.setDeepLinkingData(Branch.getInstance().getLatestReferringParams())
-                }
                 
-                if isFirstBranchSession {
-                    let dispatchGroup = DispatchGroup()
-                    dispatchGroup.enter()
-                    
-                    DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 3) {
-                        Branch.getInstance().lastAttributedTouchData(withAttributionWindow:0) { (params, error) in
-                            if let params = params {
-                                AFMigrationHelper.shared.setAttributionData(params.lastAttributedTouchJSON, attributionWindow: params.attributionWindow)
+                if isDeepLink {
+                    // deep link flow
+                    if isFirstBranchSession {
+                        // Deferred deep linking flow
+                        let dispatchGroup = DispatchGroup()
+                        dispatchGroup.enter()
+                        
+                        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 3) {
+                            Branch.getInstance().lastAttributedTouchData(withAttributionWindow:0) { (params, error) in
+                                if let params = params {
+                                    // In several cases the LATD can come back nil.
+                                    // This condition protects this case
+                                    AFMigrationHelper.shared.setAttributionData(params.lastAttributedTouchJSON, attributionWindow: params.attributionWindow)
+                                }
+                                AppsFlyerLib.shared().start()
                             }
-                            AppsFlyerLib.shared().start()
+                            dispatchGroup.leave()
                         }
-                        dispatchGroup.leave()
+                    } else {
+                        // Direct deep linking flow - Universal link
+                        AFMigrationHelper.shared.setDeepLinkingData(Branch.getInstance().getLatestReferringParams())
+                        AppsFlyerLib.shared().start()
                     }
                 } else {
+                    // Organic flow
                     AppsFlyerLib.shared().start()
                 }
             }
+            return
+        }
         return true
     }
     
         
     // Open Universal Links
-    
-    // For Swift version < 4.2 replace function signature with the commented out code
-    // func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([Any]?) -> Void) -> Bool { // this line for Swift < 4.2
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
         
         // Handler for Universal Links
