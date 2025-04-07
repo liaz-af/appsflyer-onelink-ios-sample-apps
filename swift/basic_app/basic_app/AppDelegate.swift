@@ -18,6 +18,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var ConversionData: [AnyHashable: Any]? = nil
     var window: UIWindow?
     var deferred_deep_link_processed_flag:Bool = false
+    var appsFlyerStarted = false
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
@@ -45,13 +46,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         
         Branch.getInstance().initSession(launchOptions: launchOptions) { (params, error) in
                 // Access and use deep link data here (nav to page, display content, etc.)
-                NSLog("@@@@@@@@@@@@@@ Init session started @@@@@@@@@@@@@@")
+                NSLog("@@@@@@@@@@@@@@ Init session started")
                 print(params as? [String: AnyObject] ?? {})
                 let isFirstSession = (params?["+is_first_session"] as? Bool) ?? false
                 let isDeepLink = (params?["+clicked_branch_link"] as? Bool) ?? false
                 
                 if #available(iOS 14, *) {
-                    NSLog("@@@@@@@@@@@@@@ handlePostATT call! @@@@@@@@@@@@@@")
+                    NSLog("@@@@@@@@@@@@@@ handlePostATT call!")
                     ATTrackingManager.requestTrackingAuthorization { status in
                         handlePostATT(isFirstSession: isFirstSession, isDeepLink: isDeepLink)
                     }
@@ -66,11 +67,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
             
             func handlePostATT(isFirstSession: Bool = false, isDeepLink: Bool = false) {
+                
+                guard !appsFlyerStarted else {
+                    NSLog("@@@@@@@@@@@@@@ handlePostATT Guard worked!")
+                    return
+                }
+                
                 if isDeepLink {
-                    NSLog("@@@@@@@@@@@@@@ handlePostATT isDeepLink @@@@@@@@@@@@@@")
+                    NSLog("@@@@@@@@@@@@@@ handlePostATT isDeepLink")
                     // deep link flow
                     if isFirstSession {
-                        NSLog("@@@@@@@@@@@@@@ handlePostATT Deferred deep linking flow @@@@@@@@@@@@@@")
+                        self.appsFlyerStarted = true
+                        NSLog("@@@@@@@@@@@@@@ handlePostATT Deferred deep linking flow")
                         // Deferred deep linking flow
                         let dispatchGroup = DispatchGroup()
                         dispatchGroup.enter()
@@ -81,22 +89,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                                     // In several cases the LATD can come back nil.
                                     // This condition protects this case
                                     AFMigrationHelper.shared.setAttributionData(params.lastAttributedTouchJSON, attributionWindow: params.attributionWindow)
-                                    NSLog("@@@@@@@@@@@@@@ lastAttributedTouchData @@@@@@@@@@@@@@")
-                                    print(params as? [String: AnyObject] ?? {})
+                                    NSLog("@@@@@@@@@@@@@@ lastAttributedTouchData valid")
+                                    print("LATD PARAMS: \(params.lastAttributedTouchJSON)")
+                                    print("attributionWindow PARAMS: \(params.attributionWindow)")
+                                } else {
+                                    NSLog("@@@@@@@@@@@@@@ lastAttributedTouchData came back null")
                                 }
                                 AppsFlyerLib.shared().start()
                             }
                             dispatchGroup.leave()
+                            self.appsFlyerStarted = false
                         }
                     } else {
-                        NSLog("@@@@@@@@@@@@@@ handlePostATT Direct deep linking flow @@@@@@@@@@@@@@")
+                        NSLog("@@@@@@@@@@@@@@ handlePostATT Direct deep linking flow")
                         // Direct deep linking flow - Universal link
                         AFMigrationHelper.shared.setDeepLinkingData(Branch.getInstance().getLatestReferringParams())
                         AppsFlyerLib.shared().start()
                     }
                 } else {
                     // Organic flow
-                    NSLog("@@@@@@@@@@@@@@ handlePostATT Organic flow @@@@@@@@@@@@@@")
+                    NSLog("@@@@@@@@@@@@@@ handlePostATT Organic flow")
                     AppsFlyerLib.shared().start()
                 }
             }
