@@ -16,35 +16,17 @@ import BranchSDK
 class AppDelegate: UIResponder, UIApplicationDelegate {
     var ConversionData: [AnyHashable: Any]? = nil
     var window: UIWindow?
-    var deferred_deep_link_processed_flag:Bool = false
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
         Branch.enableLogging()
         
-        if #available(iOS 16.0, *) {
-                // Don't check pasteboard on install, instead utilize UIPasteControl
-            } else if #available(iOS 15.0, *) {
-                // Call `checkPasteboardOnInstall()` before Branch initialization
-                Branch.getInstance().checkPasteboardOnInstall()
-            }
-
-            // Check if pasteboard toast will show
-            if Branch.getInstance().willShowPasteboardToast(){
-                // You can notify the user of what just occurred here
-                NSLog("[Branch] willShowPasteboardToast ######")
-          }
 
         Branch.getInstance().initSession(launchOptions: launchOptions) { (params, error) in
             NSLog("[Branch] initSession, deep link data:")
             print(params as? [String: AnyObject] ?? {})
             // Access and use deep link data here (nav to page, display content, etc.)
         }
-        
-        // Get first referring params for Deep Link
-        let installParams = Branch.getInstance().getFirstReferringParams()
-        NSLog("[Branch] initSession, installParams:")
-        print(installParams as? [String: AnyObject] ?? {})
         
         return true
     }
