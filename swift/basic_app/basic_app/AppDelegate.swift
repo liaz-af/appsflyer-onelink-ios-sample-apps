@@ -7,10 +7,7 @@
 //
 
 import UIKit
-import AppsFlyerLib
-import AppTrackingTransparency
 
-import BranchSDK
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -18,15 +15,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        
-        Branch.enableLogging()
-        
-
-        Branch.getInstance().initSession(launchOptions: launchOptions) { (params, error) in
-            NSLog("[Branch] initSession, deep link data:")
-            print(params as? [String: AnyObject] ?? {})
-            // Access and use deep link data here (nav to page, display content, etc.)
-        }
         
         return true
     }
@@ -39,7 +27,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
         
         // Handler for Universal Links
-        Branch.getInstance().continue(userActivity)        
         return true
     }
             
